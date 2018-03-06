@@ -3,7 +3,6 @@ package org.uom.sample.kmeans;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.Scanner;
-import java.util.stream.IntStream;
 
 import mpi.MPI;
 import mpi.MPIException;
@@ -24,6 +23,9 @@ public class Kmeans{
 
             int currentIteration = 0;
 
+            double[] centers;
+            double[] points;
+
             try{
 
                 MPI.Init(args);
@@ -33,11 +35,12 @@ public class Kmeans{
 
                 int pointsPerThread = pointsCount/size;
 
-                while (currentIteration < iterations){
-                    double[] centers = readCenters(centersFile, k);
-                    double[] points;
+                double[] newCenters = new double[k*2];
 
-                    points = readPoints(pointsFile, rank * pointsPerThread, pointsPerThread);
+                centers = readCenters(centersFile, k);
+                points = readPoints(pointsFile, rank*pointsPerThread, pointsPerThread);
+
+                while (currentIteration < iterations){
 
                     ArrayList<ArrayList> pointCategories = new ArrayList();
 
@@ -63,11 +66,12 @@ public class Kmeans{
                         pointCategories.get(categoryBelonged).add(currentPointSet);
                     }
 
-                    double[] newCenters = new double[k*2];
-
                     for (int i = 0; i < pointCategories.size(); i++){
                         double xAve = 0.0;
                         double yAve = 0.0;
+
+                        double globalSumX = 0.0;
+                        double globalSumY = 0.0;
 
                         double tempSumX = 0;
                         double tempSumY = 0;
@@ -78,21 +82,27 @@ public class Kmeans{
                             tempSumY += currentPointSet[1];
                         }
 
-                        MPI.COMM_WORLD.allReduce(tempSumX, xAve, 0, MPI.DOUBLE, MPI.SUM);
-                        MPI.COMM_WORLD.allReduce(tempSumY, yAve, 0, MPI.DOUBLE, MPI.SUM);
+                        MPI.COMM_WORLD.allReduce(tempSumX, globalSumX, 0, MPI.DOUBLE, MPI.SUM);
+                        MPI.COMM_WORLD.allReduce(tempSumY, globalSumY, 0, MPI.DOUBLE, MPI.SUM);
+
+                        System.out.println(globalSumX);
+
+                        xAve = globalSumX/pointsCount;
+                        yAve = globalSumY/pointsCount;
+
+                        newCenters[2*i] = xAve;
+                        newCenters[2*i + 1] = yAve;
+
 
                     }
 
                     if (rank==0){
                         writeCenters(centersFile, k, newCenters);
-
                         System.out.printf("Current iteration : %d\n", currentIteration);
-
-                        writeIteration(currentIteration, rank);
-                        currentIteration = readIteration(rank);
-
-                        currentIteration++;
                     }
+
+                    currentIteration++;
+                    writeIteration(currentIteration, rank);
 
                 }
 
@@ -102,6 +112,7 @@ public class Kmeans{
 
             } catch (IOException e){
                 e.printStackTrace();
+
             } catch (MPIException e){
                 e.printStackTrace();
             }
@@ -110,12 +121,6 @@ public class Kmeans{
             System.out.println("Incorrect number of parameters");
         }
 
-    }
-
-    private static void accumulate(double[] points, double[] centerSumsAndCounts, int pointOffset, int centerOffset, int dimension) {
-        for (int i = 0; i < dimension; ++i) {
-            centerSumsAndCounts[centerOffset+i] += points[pointOffset+i];
-        }
     }
 
     private static double getEuclideanDistance(double[] point1, double[] point2, int point1Offset, int point2Offset) {
@@ -142,11 +147,6 @@ public class Kmeans{
         System.out.println(points.length);
         return points;
     }
-
-    private static void resetCenterSumsAndCounts(double[] centerSumsAndCountsForThread) {
-        IntStream.range(0, centerSumsAndCountsForThread.length).forEach(i -> centerSumsAndCountsForThread[i] = 0.0);
-    }
-
 
     private static double[] readCenters(String centersFile, int k) throws IOException {
         double[] centers = new double[k*2];
