@@ -100,8 +100,6 @@ public class Kmeans{
                         MPI.COMM_WORLD.allReduce(doubleBufferX, globalSumX, 1, MPI.DOUBLE, MPI.SUM);
                         MPI.COMM_WORLD.allReduce(doubleBufferY, globalSumY, 1, MPI.DOUBLE, MPI.SUM);
 
-                        System.out.println(globalSumX[0]);
-
                         xAve = globalSumX[0]/pointsCount;
                         yAve = globalSumY[0]/pointsCount;
 
@@ -114,6 +112,23 @@ public class Kmeans{
                     if (rank==0){
                         writeCenters(centersFile, k, newCenters);
                         System.out.printf("Current iteration : %d\n", currentIteration);
+                    }
+
+                    MPI.COMM_WORLD.barrier();
+
+                    if(rank!=0){
+                        MPI.COMM_WORLD.send(true, 1, MPI.BOOLEAN,0, 0);
+                    }
+
+                    if(rank == 0){
+                        for (int p = 1; p < size; p++){
+                            boolean[] check = new boolean[1];
+                            MPI.COMM_WORLD.recv(check, 1, MPI.BOOLEAN, p, 0);
+
+                            if(!check[0]){
+                                System.out.println("There is an error");
+                            }
+                        }
                     }
 
                     currentIteration++;
