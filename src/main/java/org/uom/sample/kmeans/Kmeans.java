@@ -1,11 +1,14 @@
 package org.uom.sample.kmeans;
 
 import java.io.*;
+import java.nio.DoubleBuffer;
 import java.util.ArrayList;
 import java.util.Scanner;
 
 import mpi.MPI;
 import mpi.MPIException;
+import mpi.Errhandler;
+import mpi.Intracomm;
 
 
 public class Kmeans{
@@ -26,9 +29,18 @@ public class Kmeans{
             double[] centers;
             double[] points;
 
+            double[] globalSumX = new double[1];
+            double[] globalSumY = new double[1];
+
             try{
 
                 MPI.Init(args);
+
+                Intracomm comm = MPI.COMM_WORLD;
+
+                Errhandler errhandler= comm.getErrhandler();
+                comm.setErrhandler(errhandler);
+
 
                 int rank = MPI.COMM_WORLD.getRank();
                 int size = MPI.COMM_WORLD.getSize();
@@ -70,11 +82,11 @@ public class Kmeans{
                         double xAve = 0.0;
                         double yAve = 0.0;
 
-                        double globalSumX = 0.0;
-                        double globalSumY = 0.0;
+                        double tempSumX = 0.0;
+                        double tempSumY = 0.0;
 
-                        double tempSumX = 0;
-                        double tempSumY = 0;
+                        DoubleBuffer doubleBufferX = MPI.newDoubleBuffer(1);
+                        DoubleBuffer doubleBufferY = MPI.newDoubleBuffer(1);
 
                         for (int m = 0; m < pointCategories.get(i).size(); m++){
                             double[] currentPointSet = (double[]) pointCategories.get(i).get(m);
@@ -82,13 +94,16 @@ public class Kmeans{
                             tempSumY += currentPointSet[1];
                         }
 
-                        MPI.COMM_WORLD.allReduce(tempSumX, globalSumX, 0, MPI.DOUBLE, MPI.SUM);
-                        MPI.COMM_WORLD.allReduce(tempSumY, globalSumY, 0, MPI.DOUBLE, MPI.SUM);
+                        doubleBufferX.put(tempSumX);
+                        doubleBufferY.put(tempSumY);
 
-                        System.out.println(globalSumX);
+                        MPI.COMM_WORLD.allReduce(doubleBufferX, globalSumX, 1, MPI.DOUBLE, MPI.SUM);
+                        MPI.COMM_WORLD.allReduce(doubleBufferY, globalSumY, 1, MPI.DOUBLE, MPI.SUM);
 
-                        xAve = globalSumX/pointsCount;
-                        yAve = globalSumY/pointsCount;
+                        System.out.println(globalSumX[0]);
+
+                        xAve = globalSumX[0]/pointsCount;
+                        yAve = globalSumY[0]/pointsCount;
 
                         newCenters[2*i] = xAve;
                         newCenters[2*i + 1] = yAve;
