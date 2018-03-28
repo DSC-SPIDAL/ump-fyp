@@ -109,25 +109,39 @@ public class Kmeans{
 
                     }
 
+                    checkPointCenters(rank, k, centers);
+
                     if (rank==0){
                         writeCenters(centersFile, k, newCenters);
-                        System.out.printf("Current iteration : %d\n", currentIteration);
+
                     }
 
-                    MPI.COMM_WORLD.barrier();
+
 
                     if(rank!=0){
                         MPI.COMM_WORLD.send(true, 1, MPI.BOOLEAN,0, 0);
                     }
 
                     if(rank == 0){
+
+                        boolean isValidCheckpoint = true;
+
                         for (int p = 1; p < size; p++){
                             boolean[] check = new boolean[1];
                             MPI.COMM_WORLD.recv(check, 1, MPI.BOOLEAN, p, 0);
 
                             if(!check[0]){
-                                System.out.println("There is an error");
+
+                                isValidCheckpoint = false;
                             }
+                        }
+
+                        if(isValidCheckpoint){
+                            System.out.println("This is valid checkpoint");
+                            System.out.printf("Current iteration : %d\n", currentIteration);
+
+                        } else{
+                            System.out.println("There is an error. This is not a valid checkpoint.");
                         }
                     }
 
