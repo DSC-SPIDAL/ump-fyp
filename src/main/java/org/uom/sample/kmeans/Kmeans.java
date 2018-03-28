@@ -192,6 +192,16 @@ public class Kmeans{
         return centers;
     }
 
+    private static void checkPointCenters(int rank, int k, double[] centers) throws IOException {
+        FileWriter fileWriter = new FileWriter("checkpoint"+rank+".txt");
+        PrintWriter printWriter = new PrintWriter(fileWriter);
+
+        for (int i = 0; i < k; i++){
+            printWriter.printf("%.2f %.2f\n", centers[i*2], centers[i*2 + 1]);
+        }
+        printWriter.close();
+    }
+
     private static void writeCenters(String centersFile, int k, double[] centers) throws IOException {
         FileWriter fileWriter = new FileWriter(centersFile);
         PrintWriter printWriter = new PrintWriter(fileWriter);
