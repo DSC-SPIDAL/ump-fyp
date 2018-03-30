@@ -13,6 +13,7 @@ import mpi.Intracomm;
 
 public class Kmeans{
 
+
     public static void main(String[] args){
 
         if (args.length == 5){
@@ -111,13 +112,6 @@ public class Kmeans{
 
                     checkPointCenters(rank, k, centers);
 
-                    if (rank==0){
-                        writeCenters(centersFile, k, newCenters);
-
-                    }
-
-
-
                     if(rank!=0){
                         MPI.COMM_WORLD.send(true, 1, MPI.BOOLEAN,0, 0);
                     }
@@ -139,18 +133,17 @@ public class Kmeans{
                         if(isValidCheckpoint){
                             System.out.println("This is valid checkpoint");
                             System.out.printf("Current iteration : %d\n", currentIteration);
+                            writeCenters(centersFile, k, centers);
+                            writeLastValidCheckPoint(currentIteration);
+                            currentIteration++;
 
                         } else{
                             System.out.println("There is an error. This is not a valid checkpoint.");
+                            currentIteration = readLastValidCheckPoint();
                         }
                     }
 
-                    currentIteration++;
-                    writeIteration(currentIteration, rank);
-
                 }
-
-                deleteIteration(rank);
 
                 MPI.Finalize();
 
@@ -248,6 +241,25 @@ public class Kmeans{
     private static void deleteIteration(int rank){
         File file = new File("iterations" + rank + ".txt");
         file.delete();
+    }
+
+    private static void writeLastValidCheckPoint(int iteration) throws IOException{
+        FileWriter fileWriter = new FileWriter("validCheckPoint.txt");
+        PrintWriter printWriter = new PrintWriter(fileWriter);
+        printWriter.printf("%d", iteration);
+        printWriter.close();
+    }
+
+    private static int readLastValidCheckPoint() throws IOException {
+        int iteration;
+
+        File file = new File("validCheckPoint.txt");
+        Scanner scanner = new Scanner(file);
+
+        iteration = scanner.nextInt();
+        scanner.close();
+
+        return iteration;
     }
 
 }
